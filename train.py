@@ -1,8 +1,9 @@
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 from MyTorchUtils import Train,Test,set_same_seed
 from ResNet import *
 import argparse
 import datetime
-import os
 import torch
 import torch.nn as nn
 from torchvision import transforms,datasets
@@ -13,6 +14,7 @@ def Paramter_Generation():
     parameters.add_argument('--Run',type=str,default=f'outdata/Run{parameters.parse_args().now}')
     if not os.path.exists(parameters.parse_args().Run):
         os.mkdir(parameters.parse_args().Run) 
+    parameters.add_argument('--inputsize',type=tuple,default=(1,224,224))
     parameters.add_argument('--epochs',type=int,default=1)
     parameters.add_argument('--batch-size',type = int,default=8)
     parameters.add_argument('--num-workers',type=int,default=0)
@@ -20,6 +22,8 @@ def Paramter_Generation():
     parameters.add_argument('--lr',type=float,default=1e-5)
     parameters.add_argument('--betas',type=tuple,default=(0.9,0.999))
     parameters.add_argument('--weight-decay',type=float,default=0)
+    parameters.add_argument('--writer-path',type=str,default=
+                            parameters.parse_args().Run)
     parameters.add_argument('--modelframeworker-path',type = str,default=
                             os.path.join(parameters.parse_args().Run,f'model.txt'))
     parameters.add_argument('--bestmodel-path',type = str,default=
@@ -67,9 +71,9 @@ def train(args):
         ])
     traindataall = datasets.MNIST('data', train=True,download=True, transform=transforms_)
     testdataall = datasets.MNIST('data', train=False,download=True, transform=transforms__)
-    traindata = Subset(traindataall,list(range(0,200)))
-    valdata = Subset(testdataall,list(range(0, 16)))
-    testdata = Subset(testdataall,list(range(16,32)))
+    traindata = Subset(traindataall,list(range(0,600)))
+    valdata = Subset(testdataall,list(range(0, 100)))
+    testdata = Subset(testdataall,list(range(100,200)))
     trainloader = DataLoader(dataset=traindata, batch_size=args.batch_size,
                     num_workers = args.num_workers,pin_memory=True,shuffle=True)
     valloader = DataLoader(dataset=valdata, batch_size=args.batch_size,
@@ -79,6 +83,7 @@ def train(args):
     print('train data num:',len(traindata),'val data num:',len(valdata),'test data num:',len(testdata))
     Train(
         model=model,
+        inputsize=(1,224,224),
         epochs=args.epochs,
         train_data_loader=trainloader,
         val_data_loader=valloader,
@@ -89,6 +94,7 @@ def train(args):
         lastmodel_path = args.lastmodel_path,
         bestmodel_path = args.bestmodel_path,
         resultfig_path  = args.resultfig_path,
+        writer_path=args.writer_path,
         lradjust = args.lradjust,
         device = args.device,
     )

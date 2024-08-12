@@ -97,18 +97,31 @@ class MetricMonitor(object):
                 f'Accuracy:{self._Accuracy_}',f'Recall:{self._Recallscore_}',f'F1:{self._F1score_}'
         ])
 class DataUpdate(object):
-    def __init__(self):
+    def __init__(self,epoch:int = 1,writer_path = None):
+        self.epoch = epoch
+        self.sw  =None
+        if writer_path is not None:
+            try:
+                self.sw = SummaryWriter(writer_path)
+            except:
+                print('日志创建失败！')
         self.reset()
     def reset(self):
         self.metric = {}
     def update(self,**kwargs):
         for key,value in kwargs.items():
+            if self.sw is not None:
+                self.sw.add_scalar(str(key),value,self.epoch)
+                self.epoch +=1 
             if key not in self.metric.keys():
                 self.metric[str(key)] = []
             if isinstance(value,list):
                 self.metric[str(key)].extend(value)
             else:
-                self.metric[str(key)].append(value)
+                self.metric[str(key)].append(value)  
+    def _save_csv(self,result_path):
+        To_save_csv(self.metric,result_path)
+
 ########################################################## lr adjust################################################################
 """ learning rate schedule """
 def Adjust_learning_rate_consine(optimizer, epoch, init_lr,min_lr,n_epochs, ibatch, NBatch,num_init : int  =1):
@@ -286,9 +299,9 @@ def Train_epoch(model,
             loop.set_postfix(
                 {
                    'loss':loss/(index+1),
-                   'accuracy':MetricMonitors._Accuracy_,
-                   'recallscore':MetricMonitors._Recallscore_,
-                   'f1score':MetricMonitors._F1score_
+                   'Acc':MetricMonitors._Accuracy_,
+                   'Recall':MetricMonitors._Recallscore_,
+                   'F1':MetricMonitors._F1score_
                 }
             )
     loss = loss/len(train_data_loader)
@@ -319,9 +332,9 @@ def Evaluate_epoch(model,
                 loss+=loss_present.item()
                 loop_.set_postfix({
                     'loss':loss/(index+1),
-                    'accuracy':MetricMonitors._Accuracy_,
-                    'recallscore':MetricMonitors._Recallscore_,
-                    'f1score':MetricMonitors._F1score_
+                    'Acc':MetricMonitors._Accuracy_,
+                    'Recall':MetricMonitors._Recallscore_,
+                    'F1':MetricMonitors._F1score_
                 })
     loss = loss/len(val_data_loader)
     acc = MetricMonitors._Accuracy_
@@ -365,6 +378,7 @@ def To_save_csv(datadict,path):
     data.to_csv(path, index=True)
 
 def Train(model,
+          inputsize,
           epochs,
           train_data_loader,
           val_data_loader,
@@ -375,6 +389,7 @@ def Train(model,
           lastmodel_path,
           bestmodel_path,
           resultfig_path,
+          writer_path,
           device,
           lradjust : list = None,):
     start = datetime.datetime.now().timestamp()
@@ -383,7 +398,8 @@ def Train(model,
         file.write(str(model))
     # global best_acc
     best_acc=0
-    trainmetric = DataUpdate()
+    trainmetric = DataUpdate(writer_path=writer_path)
+    summary(model,inputsize)
     for epoch in range(1,epochs+1):
         train_start = datetime.datetime.now().timestamp()
         MetricMonitors = MetricMonitor()
@@ -432,8 +448,8 @@ def Train(model,
             valrecallscore=val_recall,
             valf1score=val_f1,
         )
-
-        To_save_csv(trainmetric.metric,result_path)
+        trainmetric._save_csv(result_path)
+        # To_save_csv(trainmetric.metric,result_path)
         train_end = datetime.datetime.now().timestamp()
         print(F'EPOCH {epoch}', 
               f"Training Time:{train_end - train_start:.2f}s",
